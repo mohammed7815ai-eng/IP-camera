@@ -12,3 +12,10 @@ Your device must be on the same network as the cameras.
 - Live grid (1 to 4 per row), full-screen view with zoom, snapshots and gallery, auto-reconnect
 - Camera passwords and keys stored in Android Keystore / Windows DPAPI
 - HTTPS certificate pinning, ONVIF digest login, Windows Hello / fingerprint app lock
+
+## New in 1.1.0: on-device AI
+
+- Face detection and number-plate reading per camera (turn on in the camera's settings), with boxes on the live picture
+- Detections log with close-ups, searchable by plate number
+- Enhance any snapshot or detection: low light, denoise, contrast, sharpen, 2x upscale, before/after slider
+- Runs fully on your device; nothing is uploaded

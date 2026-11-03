@@ -62,6 +62,7 @@ class _CameraViewPageState extends State<CameraViewPage> {
           repo: widget.state.repo,
           fit: _contain ? BoxFit.contain : BoxFit.cover,
           controllerOut: (h) => _handle = h,
+          aiActive: widget.state.aiEnabled,
         ),
       ),
     );

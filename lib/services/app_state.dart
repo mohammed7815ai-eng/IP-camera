@@ -12,12 +12,16 @@ class AppState extends ChangeNotifier {
   List<Camera> cameras = [];
   bool appLock = false;
   int gridColumns = 2;
+
+  /// Master switch for on-device AI detection.
+  bool aiEnabled = true;
   bool loaded = false;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     appLock = prefs.getBool('appLock') ?? false;
     gridColumns = prefs.getInt('gridColumns') ?? 2;
+    aiEnabled = prefs.getBool('aiEnabled') ?? true;
     cameras = await repo.load();
     loaded = true;
     notifyListeners();
@@ -45,6 +49,12 @@ class AppState extends ChangeNotifier {
   Future<void> setAppLock(bool v) async {
     appLock = v;
     (await SharedPreferences.getInstance()).setBool('appLock', v);
+    notifyListeners();
+  }
+
+  Future<void> setAiEnabled(bool v) async {
+    aiEnabled = v;
+    (await SharedPreferences.getInstance()).setBool('aiEnabled', v);
     notifyListeners();
   }
 

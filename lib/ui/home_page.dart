@@ -4,6 +4,7 @@ import '../models/camera.dart';
 import '../services/app_state.dart';
 import 'camera_view_page.dart';
 import 'edit_camera_page.dart';
+import 'events_page.dart';
 import 'live_view.dart';
 import 'settings_page.dart';
 import 'snapshots_page.dart';
@@ -34,6 +35,11 @@ class HomePage extends StatelessWidget {
                   for (final n in [1, 2, 3, 4])
                     CheckedPopupMenuItem(value: n, checked: state.gridColumns == n, child: Text('$n per row')),
                 ],
+              ),
+              IconButton(
+                tooltip: 'Detections',
+                icon: const Icon(Icons.manage_search),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const EventsPage())),
               ),
               IconButton(
                 tooltip: 'Snapshots',
@@ -90,7 +96,7 @@ class _Tile extends StatelessWidget {
             MaterialPageRoute<void>(builder: (_) => CameraViewPage(camera: camera, state: state)),
           ),
           child: Stack(fit: StackFit.expand, children: [
-            LiveView(key: ValueKey(camera.toJson().toString()), camera: camera, repo: state.repo),
+            LiveView(key: ValueKey(camera.toJson().toString()), camera: camera, repo: state.repo, aiActive: state.aiEnabled),
             Positioned(
               left: 0,
               right: 0,

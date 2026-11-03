@@ -386,6 +386,33 @@ class _EditCameraPageState extends State<EditCameraPage> {
             _field(_apiKey, 'API key', hint: passHint, obscure: true),
             _field(_refresh, 'Refresh every (seconds)', type: TextInputType.number),
           ],
+          const Divider(height: 32),
+          Text('AI detection', style: Theme.of(context).textTheme.titleSmall),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.face_outlined),
+            title: const Text('Detect faces'),
+            subtitle: const Text('Finds faces, does not identify people'),
+            value: _cam.aiFaces,
+            onChanged: (v) => setState(() => _cam.aiFaces = v),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.directions_car_outlined),
+            title: const Text('Detect and read number plates'),
+            value: _cam.aiPlates,
+            onChanged: (v) => setState(() => _cam.aiPlates = v),
+          ),
+          if (_cam.aiEnabled)
+            Row(children: [
+              const Expanded(child: Text('Check every')),
+              DropdownButton<int>(
+                value: _cam.aiIntervalSeconds,
+                items: [for (final s in [1, 2, 3, 5, 10]) DropdownMenuItem(value: s, child: Text('$s s'))],
+                onChanged: (v) => setState(() => _cam.aiIntervalSeconds = v ?? 2),
+              ),
+            ]),
+          const SizedBox(height: 12),
           if (kind == CameraKind.onvif && _profiles.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),

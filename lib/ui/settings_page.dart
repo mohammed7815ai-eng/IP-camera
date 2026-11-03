@@ -37,6 +37,13 @@ class SettingsPage extends StatelessWidget {
             value: state.appLock,
             onChanged: (v) => _toggleLock(context, v),
           ),
+          SwitchListTile(
+            secondary: const Icon(Icons.psychology_outlined),
+            title: const Text('AI detection'),
+            subtitle: const Text('Face and number-plate detection on cameras where you turned it on. Runs on this device only.'),
+            value: state.aiEnabled,
+            onChanged: state.setAiEnabled,
+          ),
           FutureBuilder(
             future: snapshotDir(),
             builder: (context, snap) => ListTile(
@@ -58,8 +65,13 @@ class SettingsPage extends StatelessWidget {
           const AboutListTile(
             icon: Icon(Icons.info_outline),
             applicationName: 'HomeGuard',
-            applicationVersion: '1.0.0',
-            aboutBoxChildren: [Text('Home security camera viewer for Windows and Android.')],
+            applicationVersion: '1.1.0',
+            aboutBoxChildren: [
+              Text('Home security camera viewer for Windows and Android.'),
+              SizedBox(height: 8),
+              Text('AI models (MIT licence): UltraFace RFB-320 by Linzaer; YOLOv9 plate detector from open-image-models '
+                  'and fast-plate-ocr by ankandrew.'),
+            ],
           ),
         ]),
       ),

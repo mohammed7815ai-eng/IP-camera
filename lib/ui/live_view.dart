@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../ai/ai_engine.dart';
+import '../ai/detection.dart';
+import '../ai/event_store.dart';
 import '../models/camera.dart';
 import '../services/camera_repository.dart';
 import '../services/secure_http.dart';
@@ -14,10 +17,13 @@ import '../services/stream_url.dart';
 /// Live picture of one camera. RTSP/ONVIF cameras play through libmpv with
 /// automatic reconnect; HTTP API cameras refresh a pinned-HTTPS snapshot.
 class LiveView extends StatefulWidget {
-  const LiveView({super.key, required this.camera, required this.repo, this.fit = BoxFit.cover, this.controllerOut});
+  const LiveView({super.key, required this.camera, required this.repo, this.fit = BoxFit.cover, this.controllerOut, this.aiActive = false});
   final Camera camera;
   final CameraRepository repo;
   final BoxFit fit;
+
+  /// Run the camera's enabled AI detectors on the live picture.
+  final bool aiActive;
 
   /// Gives the parent access to take snapshots.
   final void Function(LiveViewHandle handle)? controllerOut;
@@ -40,6 +46,9 @@ class _LiveViewState extends State<LiveView> implements LiveViewHandle {
   String? _status = 'Connecting…';
   Uint8List? _jpeg;
   bool _disposed = false;
+  Timer? _aiTimer;
+  FrameAnalysis? _analysis;
+  String? _aiError;
 
   bool get _isStream => widget.camera.kind != CameraKind.httpApi;
 
@@ -48,6 +57,40 @@ class _LiveViewState extends State<LiveView> implements LiveViewHandle {
     super.initState();
     widget.controllerOut?.call(this);
     _start();
+    _syncAi();
+  }
+
+  void _syncAi() {
+    _aiTimer?.cancel();
+    _aiTimer = null;
+    if (!widget.aiActive || !widget.camera.aiEnabled) {
+      _analysis = null;
+      return;
+    }
+    final every = Duration(seconds: widget.camera.aiIntervalSeconds.clamp(1, 30));
+    _aiTimer = Timer.periodic(every, (_) => _analyzeOnce());
+  }
+
+  Future<void> _analyzeOnce() async {
+    if (_disposed || _status != null) return;
+    final c = widget.camera;
+    try {
+      final frame = await snapshot();
+      if (frame == null || _disposed) return;
+      final r = await AiEngine.instance.analyze(frame, faces: c.aiFaces, plates: c.aiPlates);
+      if (r == null || _disposed) return;
+      if (mounted) {
+        setState(() {
+          _analysis = r.analysis;
+          _aiError = null;
+        });
+      }
+      if (r.analysis.detections.isNotEmpty) {
+        await EventStore.instance.record(c.id, c.name, r);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _aiError = 'AI: $e');
+    }
   }
 
   @override
@@ -57,6 +100,7 @@ class _LiveViewState extends State<LiveView> implements LiveViewHandle {
       _stop();
       _start();
     }
+    if (old.aiActive != widget.aiActive || old.camera.aiEnabled != widget.camera.aiEnabled) _syncAi();
   }
 
   Future<void> _start() async {
@@ -167,6 +211,7 @@ class _LiveViewState extends State<LiveView> implements LiveViewHandle {
   @override
   void dispose() {
     _disposed = true;
+    _aiTimer?.cancel();
     _stop();
     super.dispose();
   }
@@ -181,8 +226,25 @@ class _LiveViewState extends State<LiveView> implements LiveViewHandle {
     } else {
       picture = const ColoredBox(color: Colors.black);
     }
+    final a = _analysis;
+    final fresh = a != null && DateTime.now().difference(a.at) < Duration(seconds: widget.camera.aiIntervalSeconds * 2 + 2);
     return Stack(fit: StackFit.expand, children: [
       picture,
+      if (fresh && a.detections.isNotEmpty)
+        IgnorePointer(child: CustomPaint(painter: DetectionPainter(a, widget.fit))),
+      if (widget.aiActive && widget.camera.aiEnabled)
+        Positioned(
+          top: 6,
+          right: 6,
+          child: Tooltip(
+            message: _aiError ?? 'AI detection on',
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: _aiError == null ? Colors.black54 : Colors.red.shade900, borderRadius: BorderRadius.circular(6)),
+              child: const Text('AI', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ),
       if (_status != null)
         Center(
           child: Container(
@@ -210,4 +272,39 @@ Uri snapshotUri(Camera c) {
     path: pathUri.path,
     query: pathUri.hasQuery ? pathUri.query : null,
   );
+}
+
+/// Draws detection boxes over the video, matching how [fit] places the frame.
+class DetectionPainter extends CustomPainter {
+  DetectionPainter(this.analysis, this.fit);
+  final FrameAnalysis analysis;
+  final BoxFit fit;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fw = analysis.width.toDouble(), fh = analysis.height.toDouble();
+    final s = fit == BoxFit.contain
+        ? (size.width / fw < size.height / fh ? size.width / fw : size.height / fh)
+        : (size.width / fw > size.height / fh ? size.width / fw : size.height / fh);
+    final dw = fw * s, dh = fh * s;
+    final ox = (size.width - dw) / 2, oy = (size.height - dh) / 2;
+    for (final d in analysis.detections) {
+      final color = d.kind == DetectionKind.face ? const Color(0xFF4FC3F7) : const Color(0xFFFFC107);
+      final r = Rect.fromLTRB(ox + d.x1 * dw, oy + d.y1 * dh, ox + d.x2 * dw, oy + d.y2 * dh);
+      canvas.drawRect(r, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = color);
+      final tp = TextPainter(
+        text: TextSpan(text: ' ${d.label} ', style: const TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.w700)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final ty = r.top - tp.height < 0 ? r.bottom : r.top - tp.height;
+      canvas.drawRect(Rect.fromLTWH(r.left, ty, tp.width, tp.height), Paint()..color = color);
+      tp.paint(canvas, Offset(r.left, ty));
+    }
+  }
+
+  @override
+  bool shouldRepaint(DetectionPainter old) => old.analysis != analysis || old.fit != fit;
 }

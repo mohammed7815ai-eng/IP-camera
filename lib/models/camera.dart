@@ -38,6 +38,9 @@ class Camera {
     this.pinnedSha256,
     this.resolvedStreamUri,
     this.refreshSeconds = 2,
+    this.aiFaces = false,
+    this.aiPlates = false,
+    this.aiIntervalSeconds = 2,
   });
 
   final String id;
@@ -72,6 +75,17 @@ class Camera {
   /// HTTP API: seconds between snapshot refreshes.
   int refreshSeconds;
 
+  /// Run face detection on this camera's live picture.
+  bool aiFaces;
+
+  /// Run number-plate detection and reading on this camera's live picture.
+  bool aiPlates;
+
+  /// Seconds between analysed frames.
+  int aiIntervalSeconds;
+
+  bool get aiEnabled => aiFaces || aiPlates;
+
   int get effectivePort {
     if (port > 0) return port;
     return switch (kind) {
@@ -94,6 +108,9 @@ class Camera {
         'pinnedSha256': pinnedSha256,
         'resolvedStreamUri': resolvedStreamUri,
         'refreshSeconds': refreshSeconds,
+        'aiFaces': aiFaces,
+        'aiPlates': aiPlates,
+        'aiIntervalSeconds': aiIntervalSeconds,
       };
 
   factory Camera.fromJson(Map<String, dynamic> j) => Camera(
@@ -112,6 +129,9 @@ class Camera {
         pinnedSha256: j['pinnedSha256'] as String?,
         resolvedStreamUri: j['resolvedStreamUri'] as String?,
         refreshSeconds: (j['refreshSeconds'] as num?)?.toInt() ?? 2,
+        aiFaces: j['aiFaces'] as bool? ?? false,
+        aiPlates: j['aiPlates'] as bool? ?? false,
+        aiIntervalSeconds: (j['aiIntervalSeconds'] as num?)?.toInt() ?? 2,
       );
 
   Camera copy() => Camera.fromJson(jsonDecode(jsonEncode(toJson())) as Map<String, dynamic>);

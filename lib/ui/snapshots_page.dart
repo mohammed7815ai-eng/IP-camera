@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../services/snapshots.dart';
+import 'enhance_page.dart';
 
 class SnapshotsPage extends StatefulWidget {
   const SnapshotsPage({super.key});
@@ -33,6 +34,11 @@ class _SnapshotsPageState extends State<SnapshotsPage> {
                   appBar: AppBar(
                     title: Text(files[i].uri.pathSegments.last),
                     actions: [
+                      IconButton(
+                        tooltip: 'Enhance',
+                        icon: const Icon(Icons.auto_fix_high),
+                        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => EnhancePage(file: files[i]))),
+                      ),
                       IconButton(
                         tooltip: 'Delete',
                         icon: const Icon(Icons.delete_outline),

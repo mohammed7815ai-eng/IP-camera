@@ -19,9 +19,17 @@ Secure home security camera app for **Windows** and **Android**, built with Flut
 
 Known limit: RTSPS streams are encrypted but libmpv does not verify the camera certificate; keep cameras on a private network or VLAN.
 
+## Stage 2 (v1.1): on-device AI
+
+- **Face detection** (UltraFace) and **number-plate detection + reading** (YOLOv9 + fast-plate-ocr), switched on per camera, every 1 to 10 seconds. Boxes and plate numbers are drawn on the live picture.
+- **Detections log**: every face and plate with a close-up crop and the full frame, searchable by plate number; repeats are suppressed (faces 20 s per camera, the same plate 2 min across cameras).
+- **Enhance**: low-light boost, edge-preserving denoise, auto contrast, sharpening, 2x upscale, with a before/after slider. Enhanced copies are stamped "ENHANCED"; originals are never changed.
+- Everything runs on the device (ONNX Runtime on Windows and Android). Models and licences: `assets/models/LICENSES.md`.
+- Faces are detected, not identified.
+- AI runs on cameras that are on screen; 24/7 background detection comes with recording in Stage 3.
+
 ## Coming next
 
-- Stage 2: face detection, licence-plate reading, image enhancement.
 - Stage 3: continuous and event recording, timeline playback, alarms with push notifications.
 
 ## Install
