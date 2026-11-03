@@ -37,6 +37,12 @@ Known limit: RTSPS streams are encrypted but libmpv does not verify the camera c
 - **Storage**: retention days per camera and a total limit (oldest deleted first).
 - **Android background mode** (opt-in): a foreground service with a permanent notification keeps recording and alarms running when you leave the app. On Windows, keep the app open or minimised.
 
+## Auto setup (v1.3)
+
+- Radar button on the Home screen: scans the device's own /24 network for camera ports, runs an ONVIF WS-Discovery search, fingerprints each device (ports, web banner, ONVIF scopes), then logs in over ONVIF or tries the brand's RTSP stream paths with RTSP Digest/Basic login.
+- Only private addresses are scanned; the typed password is tried once per path, never guessed.
+- Code: `lib/discovery/` (net_scan, rtsp_probe, camera_agent), UI in `lib/ui/auto_setup_page.dart`.
+
 ## Coming next
 
 - Remote access from outside the home (WireGuard), smaller per-architecture APKs, code-signed Windows installer.

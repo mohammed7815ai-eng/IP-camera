@@ -9,12 +9,17 @@ import 'alarms_page.dart';
 import 'recordings_page.dart';
 import '../alarm/alarm.dart';
 import 'live_view.dart';
+import 'auto_setup_page.dart';
 import 'settings_page.dart';
 import 'snapshots_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key, required this.state});
   final AppState state;
+
+  Future<void> _auto(BuildContext context) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AutoSetupPage(state: state)));
+  }
 
   Future<void> _add(BuildContext context) async {
     await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => EditCameraPage(state: state)));
@@ -74,6 +79,11 @@ class HomePage extends StatelessWidget {
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SnapshotsPage())),
               ),
               IconButton(
+                tooltip: 'Auto setup: find cameras',
+                icon: const Icon(Icons.radar),
+                onPressed: () => _auto(context),
+              ),
+              IconButton(
                 tooltip: 'Settings',
                 icon: const Icon(Icons.settings_outlined),
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => SettingsPage(state: state))),
@@ -86,7 +96,7 @@ class HomePage extends StatelessWidget {
             label: const Text('Add camera'),
           ),
           body: cams.isEmpty
-              ? _Empty(onAdd: () => _add(context))
+              ? _Empty(onAdd: () => _add(context), onAuto: () => _auto(context))
               : LayoutBuilder(builder: (context, box) {
                   final cols = box.maxWidth < 500 ? state.gridColumns.clamp(1, 2) : state.gridColumns;
                   return GridView.builder(
@@ -150,8 +160,9 @@ class _Tile extends StatelessWidget {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.onAdd});
+  const _Empty({required this.onAdd, required this.onAuto});
   final VoidCallback onAdd;
+  final VoidCallback onAuto;
   @override
   Widget build(BuildContext context) => Center(
         child: Padding(
@@ -163,7 +174,9 @@ class _Empty extends StatelessWidget {
             const SizedBox(height: 8),
             const Text('Add an RTSP, ONVIF, or HTTPS API camera on your home network.', textAlign: TextAlign.center),
             const SizedBox(height: 16),
-            FilledButton.icon(onPressed: onAdd, icon: const Icon(Icons.add), label: const Text('Add camera')),
+            FilledButton.icon(onPressed: onAuto, icon: const Icon(Icons.radar), label: const Text('Find my cameras automatically')),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(onPressed: onAdd, icon: const Icon(Icons.add), label: const Text('Add camera by hand')),
           ]),
         ),
       );

@@ -3,8 +3,11 @@ import 'package:uuid/uuid.dart';
 
 import '../models/camera.dart';
 import '../services/app_state.dart';
+import '../discovery/camera_agent.dart';
+import '../discovery/net_scan.dart';
 import '../services/onvif.dart';
 import '../services/secure_http.dart';
+import 'auto_setup_page.dart';
 import 'live_view.dart' show snapshotUri;
 
 class EditCameraPage extends StatefulWidget {
@@ -83,7 +86,9 @@ class _EditCameraPageState extends State<EditCameraPage> {
       _message = 'Searching your network for ONVIF cameras…';
     });
     try {
-      final list = await discoverOnvif();
+      await CameraSetupAgent.holdMulticast(true);
+      final list = await discoverOnvif(localAddresses: await localIpv4Addresses())
+          .whenComplete(() => CameraSetupAgent.holdMulticast(false));
       setState(() {
         _discovered = list;
         _message = list.isEmpty ? 'No cameras answered. Enter the address by hand.' : null;
@@ -313,6 +318,17 @@ class _EditCameraPageState extends State<EditCameraPage> {
             }),
           ),
           const SizedBox(height: 16),
+          if (_isNew)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextButton.icon(
+                onPressed: () => Navigator.of(context).pushReplacement(
+                  MaterialPageRoute<void>(builder: (_) => AutoSetupPage(state: widget.state)),
+                ),
+                icon: const Icon(Icons.radar),
+                label: const Text('Not sure? Let HomeGuard find and set up the camera for you'),
+              ),
+            ),
           _field(_name, 'Name', hint: 'Front door', required: true),
           if (kind == CameraKind.onvif) ...[
             OutlinedButton.icon(

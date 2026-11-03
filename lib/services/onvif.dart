@@ -25,9 +25,12 @@ class OnvifProfile {
 }
 
 class DiscoveredDevice {
-  DiscoveredDevice(this.xaddr, this.name);
+  DiscoveredDevice(this.xaddr, this.name, {this.hardware});
   final Uri xaddr;
   final String name;
+
+  /// Model from the ONVIF hardware scope, when the camera reports one.
+  final String? hardware;
 }
 
 const _wsse = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd';
@@ -233,53 +236,98 @@ class OnvifClient {
 }
 
 /// WS-Discovery probe for ONVIF cameras on the local network.
-Future<List<DiscoveredDevice>> discoverOnvif({Duration wait = const Duration(seconds: 3)}) async {
-  final msgId = 'uuid:${List.generate(16, (_) => Random().nextInt(256).toRadixString(16).padLeft(2, '0')).join()}';
-  final probe = '<?xml version="1.0" encoding="UTF-8"?>'
-      '<e:Envelope xmlns:e="http://www.w3.org/2003/05/soap-envelope" '
-      'xmlns:w="http://schemas.xmlsoap.org/ws/2004/08/addressing" '
-      'xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" '
-      'xmlns:dn="http://www.onvif.org/ver10/network/wsdl">'
-      '<e:Header><w:MessageID>$msgId</w:MessageID>'
-      '<w:To e:mustUnderstand="true">urn:schemas-xmlsoap-org:ws:2005:04:discovery</w:To>'
-      '<w:Action e:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</w:Action>'
-      '</e:Header><e:Body><d:Probe><d:Types>dn:NetworkVideoTransmitter</d:Types></d:Probe></e:Body></e:Envelope>';
+///
+/// Sends the probe out of every local network (not just the default one, so
+/// PCs with VPN or virtual adapters still find cameras), asks twice (once for
+/// video transmitters, once for any ONVIF device, because some cheap cameras
+/// only answer the second), and prefers the address the reply came from.
+Future<List<DiscoveredDevice>> discoverOnvif({
+  Duration wait = const Duration(seconds: 3),
+  List<String> localAddresses = const [],
+}) async {
+  String probe(String? types) {
+    final msgId = 'uuid:${List.generate(16, (_) => Random().nextInt(256).toRadixString(16).padLeft(2, '0')).join()}';
+    return '<?xml version="1.0" encoding="UTF-8"?>'
+        '<e:Envelope xmlns:e="http://www.w3.org/2003/05/soap-envelope" '
+        'xmlns:w="http://schemas.xmlsoap.org/ws/2004/08/addressing" '
+        'xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" '
+        'xmlns:dn="http://www.onvif.org/ver10/network/wsdl" '
+        'xmlns:tds="http://www.onvif.org/ver10/device/wsdl">'
+        '<e:Header><w:MessageID>$msgId</w:MessageID>'
+        '<w:To e:mustUnderstand="true">urn:schemas-xmlsoap-org:ws:2005:04:discovery</w:To>'
+        '<w:Action e:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2005/04/discovery/Probe</w:Action>'
+        '</e:Header><e:Body><d:Probe>${types == null ? '' : '<d:Types>$types</d:Types>'}</d:Probe></e:Body></e:Envelope>';
+  }
 
   final found = <String, DiscoveredDevice>{};
-  final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-  socket.broadcastEnabled = true;
-  final done = Completer<void>();
-  final sub = socket.listen((ev) {
-    if (ev != RawSocketEvent.read) return;
-    final dg = socket.receive();
-    if (dg == null) return;
+  final sockets = <RawDatagramSocket>[];
+  final binds = localAddresses.isEmpty ? [InternetAddress.anyIPv4] : localAddresses.map(InternetAddress.new).toList();
+  for (final b in binds) {
     try {
-      final doc = XmlDocument.parse(utf8.decode(dg.data, allowMalformed: true));
-      final xaddrs = (firstText(doc, 'XAddrs') ?? '').split(RegExp(r'\s+'));
-      final scopes = (firstText(doc, 'Scopes') ?? '').split(RegExp(r'\s+'));
-      var name = dg.address.address;
-      for (final s in scopes) {
-        const marker = 'onvif://www.onvif.org/name/';
-        if (s.startsWith(marker)) name = Uri.decodeComponent(s.substring(marker.length));
-      }
-      for (final x in xaddrs) {
-        final u = Uri.tryParse(x);
-        // Prefer an IPv4 address that matches the sender.
-        if (u != null && u.host.isNotEmpty && !u.host.contains(':')) {
-          found[u.host] = DiscoveredDevice(u, name);
-          break;
-        }
-      }
-    } catch (_) {/* ignore non-ONVIF replies */}
-  });
-  final data = utf8.encode(probe);
-  for (var i = 0; i < 2; i++) {
-    socket.send(data, InternetAddress('239.255.255.250'), 3702);
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+      sockets.add(await RawDatagramSocket.bind(b, 0));
+    } catch (_) {/* adapter went away */}
   }
-  Timer(wait, () => done.complete());
-  await done.future;
-  await sub.cancel();
-  socket.close();
+  if (sockets.isEmpty) sockets.add(await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0));
+  final subs = <StreamSubscription<RawSocketEvent>>[];
+  for (final socket in sockets) {
+    socket.broadcastEnabled = true;
+    subs.add(socket.listen((ev) {
+      if (ev != RawSocketEvent.read) return;
+      final dg = socket.receive();
+      if (dg == null) return;
+      final d = parseProbeMatch(utf8.decode(dg.data, allowMalformed: true), dg.address.address);
+      if (d != null) found[d.xaddr.host] = d;
+    }));
+  }
+  final messages = [utf8.encode(probe('dn:NetworkVideoTransmitter')), utf8.encode(probe('tds:Device')), utf8.encode(probe(null))];
+  for (var round = 0; round < 2; round++) {
+    for (final socket in sockets) {
+      for (final m in messages) {
+        try {
+          socket.send(m, InternetAddress('239.255.255.250'), 3702);
+        } catch (_) {/* no multicast route on this adapter */}
+      }
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+  }
+  await Future<void>.delayed(wait);
+  for (final s in subs) {
+    await s.cancel();
+  }
+  for (final s in sockets) {
+    s.close();
+  }
   return found.values.toList();
+}
+
+/// Parses a WS-Discovery ProbeMatch. Picks the XAddr whose host is the
+/// sender when there is one, because cameras often list stale or internal
+/// addresses first.
+DiscoveredDevice? parseProbeMatch(String xml, String sender) {
+  try {
+    final doc = XmlDocument.parse(xml);
+    if (byLocal(doc, 'ProbeMatch').isEmpty) return null;
+    final xaddrs = (firstText(doc, 'XAddrs') ?? '')
+        .split(RegExp(r'\s+'))
+        .map(Uri.tryParse)
+        .whereType<Uri>()
+        .where((u) => u.host.isNotEmpty && !u.host.contains(':'))
+        .toList();
+    if (xaddrs.isEmpty) return null;
+    final scopes = (firstText(doc, 'Scopes') ?? '').split(RegExp(r'\s+'));
+    var name = sender;
+    String? hardware;
+    for (final s in scopes) {
+      const nameMarker = 'onvif://www.onvif.org/name/';
+      const hwMarker = 'onvif://www.onvif.org/hardware/';
+      if (s.startsWith(nameMarker)) name = Uri.decodeComponent(s.substring(nameMarker.length));
+      if (s.startsWith(hwMarker)) hardware = Uri.decodeComponent(s.substring(hwMarker.length));
+    }
+    final best = xaddrs.firstWhere((u) => u.host == sender, orElse: () => xaddrs.first);
+    // A camera reporting a different subnet than it sent from: trust the sender.
+    final uri = best.host == sender ? best : best.replace(host: sender);
+    return DiscoveredDevice(uri, name, hardware: hardware);
+  } catch (_) {
+    return null;
+  }
 }

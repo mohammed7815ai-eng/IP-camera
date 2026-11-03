@@ -27,3 +27,10 @@ Your device must be on the same network as the cameras.
 - Export clips with a SHA-256 fingerprint
 - Alarm system with Disarmed / Home / Away modes, motion / person / vehicle triggers, plate watchlist and allowed list, notifications and siren
 - Android: optional "keep watching in the background"
+
+## New in 1.3.0: automatic camera setup
+
+- **Auto setup** (radar button on the Home screen): scans your home network, finds cameras, works out how to connect (ONVIF, or RTSP with the right stream path for Hikvision, Dahua, Reolink, Tapo, iCSee/XMEye, Yoosee, V380, CamHi, Uniview, Axis and generic cameras), checks the login, and adds working cameras with one tap
+- Tells you clearly when a camera refused the password, or only works in its maker's cloud app
+- More reliable "Find cameras on my network": searches every network adapter, asks in three ways, and holds Android's multicast lock while searching
+- Cameras that need the login inside the stream path (iCSee/XMEye) are supported; the password still stays in secure storage
