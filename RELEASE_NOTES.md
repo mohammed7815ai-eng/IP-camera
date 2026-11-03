@@ -19,3 +19,11 @@ Your device must be on the same network as the cameras.
 - Detections log with close-ups, searchable by plate number
 - Enhance any snapshot or detection: low light, denoise, contrast, sharpen, 2x upscale, before/after slider
 - Runs fully on your device; nothing is uploaded
+
+## New in 1.2.0: recording, playback and alarms
+
+- Record each camera 24/7 or only around events, with storage and retention limits
+- Playback timeline with event markers, zoom, speeds up to 16x, and a 4-camera synced view
+- Export clips with a SHA-256 fingerprint
+- Alarm system with Disarmed / Home / Away modes, motion / person / vehicle triggers, plate watchlist and allowed list, notifications and siren
+- Android: optional "keep watching in the background"

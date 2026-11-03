@@ -1,5 +1,5 @@
 /// One thing the AI found in a frame.
-enum DetectionKind { face, plate }
+enum DetectionKind { face, plate, motion }
 
 class Detection {
   Detection({
@@ -26,6 +26,7 @@ class Detection {
   String get label => switch (kind) {
         DetectionKind.face => 'Face ${(score * 100).round()}%',
         DetectionKind.plate => text == null || text!.isEmpty ? 'Plate' : text!,
+        DetectionKind.motion => 'Motion',
       };
 }
 

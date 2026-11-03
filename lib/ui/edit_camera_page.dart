@@ -412,6 +412,70 @@ class _EditCameraPageState extends State<EditCameraPage> {
                 onChanged: (v) => setState(() => _cam.aiIntervalSeconds = v ?? 2),
               ),
             ]),
+          const Divider(height: 32),
+          Text('Recording', style: Theme.of(context).textTheme.titleSmall),
+          if (!_cam.canRecord)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('Snapshot (API key) cameras cannot record video, but they can still raise alarms.'),
+            )
+          else ...[
+            Row(children: [
+              const Expanded(child: Text('Record')),
+              DropdownButton<RecordingMode>(
+                value: _cam.recording,
+                items: [for (final m in RecordingMode.values) DropdownMenuItem(value: m, child: Text(m.label))],
+                onChanged: (m) => setState(() => _cam.recording = m ?? RecordingMode.off),
+              ),
+            ]),
+            if (_cam.recording != RecordingMode.off)
+              Row(children: [
+                const Expanded(child: Text('Keep recordings for')),
+                DropdownButton<int>(
+                  value: _cam.retentionDays,
+                  items: [for (final d in [1, 3, 7, 14, 30, 60, 90]) DropdownMenuItem(value: d, child: Text('$d days'))],
+                  onChanged: (d) => setState(() => _cam.retentionDays = d ?? 14),
+                ),
+              ]),
+            if (_cam.recording == RecordingMode.events)
+              const Text('Keeps 1-minute clips around motion, faces and plates, plus a minute before and after.',
+                  style: TextStyle(fontSize: 12)),
+          ],
+          const Divider(height: 32),
+          Text('Alarms and background watching', style: Theme.of(context).textTheme.titleSmall),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.directions_run),
+            title: const Text('Detect motion'),
+            subtitle: const Text('Logs motion events, even when the camera is not on screen'),
+            value: _cam.motion,
+            onChanged: (v) => setState(() => _cam.motion = v),
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Alarm on motion'),
+            value: _cam.alarmMotion,
+            onChanged: (v) => setState(() => _cam.alarmMotion = v ?? false),
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Alarm on a person (face)'),
+            value: _cam.alarmFaces,
+            onChanged: (v) => setState(() => _cam.alarmFaces = v ?? false),
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Alarm on a vehicle (plate not in your allowed list)'),
+            value: _cam.alarmPlates,
+            onChanged: (v) => setState(() => _cam.alarmPlates = v ?? false),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Alarm in Home mode too'),
+            subtitle: const Text('Turn on for outdoor cameras; indoor cameras usually alarm only in Away mode'),
+            value: _cam.alarmWhenHome,
+            onChanged: (v) => setState(() => _cam.alarmWhenHome = v),
+          ),
           const SizedBox(height: 12),
           if (kind == CameraKind.onvif && _profiles.isNotEmpty)
             Padding(

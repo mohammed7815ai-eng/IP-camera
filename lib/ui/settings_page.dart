@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../recording/recording_service.dart';
+import '../recording/recording_store.dart';
 import '../services/app_state.dart';
+import '../services/background.dart';
 import '../services/snapshots.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -44,6 +47,34 @@ class SettingsPage extends StatelessWidget {
             value: state.aiEnabled,
             onChanged: state.setAiEnabled,
           ),
+          ListenableBuilder(
+            listenable: RecordingService.instance,
+            builder: (context, _) => ListTile(
+              leading: const Icon(Icons.storage_outlined),
+              title: const Text('Recording storage limit'),
+              subtitle: FutureBuilder<int>(
+                future: RecordingStore.instance.totalBytes(),
+                builder: (context, snap) => Text(
+                  'Using ${snap.hasData ? (snap.data! / 1073741824).toStringAsFixed(1) : '…'} GB of '
+                  '${RecordingService.instance.maxGigabytes} GB; oldest footage is deleted first',
+                ),
+              ),
+              trailing: DropdownButton<int>(
+                value: RecordingService.instance.maxGigabytes,
+                items: [for (final g in [5, 10, 25, 50, 100, 250, 500, 1000]) DropdownMenuItem(value: g, child: Text('$g GB'))],
+                onChanged: (g) => RecordingService.instance.setMaxGigabytes(g ?? 50),
+              ),
+            ),
+          ),
+          FutureBuilder(
+            future: RecordingStore.instance.root(),
+            builder: (context, snap) => ListTile(
+              leading: const Icon(Icons.video_library_outlined),
+              title: const Text('Recordings folder'),
+              subtitle: Text(snap.data?.path ?? '…'),
+            ),
+          ),
+          if (BackgroundMode.supported) const _BackgroundTile(),
           FutureBuilder(
             future: snapshotDir(),
             builder: (context, snap) => ListTile(
@@ -65,7 +96,7 @@ class SettingsPage extends StatelessWidget {
           const AboutListTile(
             icon: Icon(Icons.info_outline),
             applicationName: 'HomeGuard',
-            applicationVersion: '1.1.0',
+            applicationVersion: '1.2.0',
             aboutBoxChildren: [
               Text('Home security camera viewer for Windows and Android.'),
               SizedBox(height: 8),
@@ -77,4 +108,35 @@ class SettingsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+class _BackgroundTile extends StatefulWidget {
+  const _BackgroundTile();
+  @override
+  State<_BackgroundTile> createState() => _BackgroundTileState();
+}
+
+class _BackgroundTileState extends State<_BackgroundTile> {
+  bool? _on;
+  @override
+  void initState() {
+    super.initState();
+    BackgroundMode.enabled().then((v) => setState(() => _on = v));
+  }
+
+  @override
+  Widget build(BuildContext context) => SwitchListTile(
+        secondary: const Icon(Icons.nightlight_outlined),
+        title: const Text('Keep watching in the background'),
+        subtitle: const Text('Recording, detection and alarms continue when you leave the app. Shows a permanent notification.'),
+        value: _on ?? false,
+        onChanged: _on == null
+            ? null
+            : (v) async {
+                final messenger = ScaffoldMessenger.of(context);
+                final err = await BackgroundMode.set(v);
+                setState(() => _on = v);
+                if (err != null) messenger.showSnackBar(SnackBar(content: Text('Could not change background mode: $err')));
+              },
+      );
 }

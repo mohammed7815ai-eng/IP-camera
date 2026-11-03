@@ -22,6 +22,16 @@ extension CameraKindLabel on CameraKind {
       };
 }
 
+enum RecordingMode { off, continuous, events }
+
+extension RecordingModeLabel on RecordingMode {
+  String get label => switch (this) {
+        RecordingMode.off => 'Off',
+        RecordingMode.continuous => 'Continuous (24/7)',
+        RecordingMode.events => 'Only around events',
+      };
+}
+
 /// Non-secret camera settings. Passwords and API keys are never stored here;
 /// they live in [SecretStore] under keys derived from [id].
 class Camera {
@@ -41,6 +51,13 @@ class Camera {
     this.aiFaces = false,
     this.aiPlates = false,
     this.aiIntervalSeconds = 2,
+    this.recording = RecordingMode.off,
+    this.retentionDays = 14,
+    this.motion = false,
+    this.alarmMotion = false,
+    this.alarmFaces = false,
+    this.alarmPlates = false,
+    this.alarmWhenHome = false,
   });
 
   final String id;
@@ -86,6 +103,27 @@ class Camera {
 
   bool get aiEnabled => aiFaces || aiPlates;
 
+  RecordingMode recording;
+
+  /// Days of recordings to keep for this camera.
+  int retentionDays;
+
+  /// Run motion detection in the background.
+  bool motion;
+
+  /// Alarm triggers (used when the system is armed).
+  bool alarmMotion, alarmFaces, alarmPlates;
+
+  /// Also raise alarms in Home mode (e.g. outdoor cameras); otherwise only
+  /// in Away mode.
+  bool alarmWhenHome;
+
+  bool get canRecord => kind != CameraKind.httpApi;
+
+  /// Whether this camera needs a background worker.
+  bool get needsWorker =>
+      (canRecord && recording != RecordingMode.off) || motion || alarmMotion || alarmFaces || alarmPlates;
+
   int get effectivePort {
     if (port > 0) return port;
     return switch (kind) {
@@ -111,6 +149,13 @@ class Camera {
         'aiFaces': aiFaces,
         'aiPlates': aiPlates,
         'aiIntervalSeconds': aiIntervalSeconds,
+        'recording': recording.name,
+        'retentionDays': retentionDays,
+        'motion': motion,
+        'alarmMotion': alarmMotion,
+        'alarmFaces': alarmFaces,
+        'alarmPlates': alarmPlates,
+        'alarmWhenHome': alarmWhenHome,
       };
 
   factory Camera.fromJson(Map<String, dynamic> j) => Camera(
@@ -132,6 +177,13 @@ class Camera {
         aiFaces: j['aiFaces'] as bool? ?? false,
         aiPlates: j['aiPlates'] as bool? ?? false,
         aiIntervalSeconds: (j['aiIntervalSeconds'] as num?)?.toInt() ?? 2,
+        recording: RecordingMode.values.firstWhere((m) => m.name == j['recording'], orElse: () => RecordingMode.off),
+        retentionDays: (j['retentionDays'] as num?)?.toInt() ?? 14,
+        motion: j['motion'] as bool? ?? false,
+        alarmMotion: j['alarmMotion'] as bool? ?? false,
+        alarmFaces: j['alarmFaces'] as bool? ?? false,
+        alarmPlates: j['alarmPlates'] as bool? ?? false,
+        alarmWhenHome: j['alarmWhenHome'] as bool? ?? false,
       );
 
   Camera copy() => Camera.fromJson(jsonDecode(jsonEncode(toJson())) as Map<String, dynamic>);

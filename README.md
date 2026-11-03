@@ -26,11 +26,20 @@ Known limit: RTSPS streams are encrypted but libmpv does not verify the camera c
 - **Enhance**: low-light boost, edge-preserving denoise, auto contrast, sharpening, 2x upscale, with a before/after slider. Enhanced copies are stamped "ENHANCED"; originals are never changed.
 - Everything runs on the device (ONNX Runtime on Windows and Android). Models and licences: `assets/models/LICENSES.md`.
 - Faces are detected, not identified.
-- AI runs on cameras that are on screen; 24/7 background detection comes with recording in Stage 3.
+
+## Stage 3 (v1.2): recording, playback, alarms
+
+- **Recording per camera**: continuous 24/7, or only around events (1-minute clips kept around motion, faces and plates, plus a minute before and after). The camera's stream is saved as-is (no re-encoding), in 5-minute `.mkv` files under `Recordings/<camera>/<day>/`.
+- **Background workers**: a headless player per camera decodes only keyframes for motion detection and AI, so 24/7 watching costs far less than live view.
+- **Playback**: day timeline with recorded spans and colour-coded event ticks, zoom to 6 h / 1 h, 0.5x to 16x, 30-second jumps, auto-advance across files, and a synced multi-camera view (up to 4).
+- **Export** a clip with a `.sha256` file to prove it was not changed.
+- **Alarm system**: Disarmed / Home / Away; per-camera triggers (motion, person, vehicle) and "alarm in Home mode"; plate **watchlist** (always alerts) and **allowed list** (never alarms); notifications on Android and Windows, a generated siren, an alarm inbox that jumps to the recording.
+- **Storage**: retention days per camera and a total limit (oldest deleted first).
+- **Android background mode** (opt-in): a foreground service with a permanent notification keeps recording and alarms running when you leave the app. On Windows, keep the app open or minimised.
 
 ## Coming next
 
-- Stage 3: continuous and event recording, timeline playback, alarms with push notifications.
+- Remote access from outside the home (WireGuard), smaller per-architecture APKs, code-signed Windows installer.
 
 ## Install
 

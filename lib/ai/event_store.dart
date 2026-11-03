@@ -59,18 +59,25 @@ class AiEvent {
 
 /// Decides whether a detection is a new event or a repeat of one just seen.
 class Cooldown {
-  Cooldown({this.face = const Duration(seconds: 20), this.plate = const Duration(minutes: 2), this.unreadPlate = const Duration(seconds: 30)});
-  final Duration face, plate, unreadPlate;
+  Cooldown({
+    this.face = const Duration(seconds: 20),
+    this.plate = const Duration(minutes: 2),
+    this.unreadPlate = const Duration(seconds: 30),
+    this.motion = const Duration(seconds: 30),
+  });
+  final Duration face, plate, unreadPlate, motion;
   final Map<String, DateTime> _last = {};
 
   bool allow(String cameraId, Detection d, DateTime now) {
     final key = switch (d.kind) {
       DetectionKind.face => '$cameraId/face',
       DetectionKind.plate => d.text == null ? '$cameraId/plate?' : 'plate/${d.text}',
+      DetectionKind.motion => '$cameraId/motion',
     };
     final window = switch (d.kind) {
       DetectionKind.face => face,
       DetectionKind.plate => d.text == null ? unreadPlate : plate,
+      DetectionKind.motion => motion,
     };
     final prev = _last[key];
     if (prev != null && now.difference(prev) < window) return false;
@@ -142,7 +149,7 @@ class EventStore extends ChangeNotifier {
     final added = <AiEvent>[];
     for (final i in fresh) {
       final d = r.analysis.detections[i];
-      final b = r.boxes[i].expand(d.kind == DetectionKind.face ? 0.35 : 0.08, r.frame.width, r.frame.height);
+      final b = r.boxes[i].expand(switch (d.kind) { DetectionKind.face => 0.35, DetectionKind.plate => 0.08, DetectionKind.motion => 0.0 }, r.frame.width, r.frame.height);
       final cropPath = '${dir.path}$sep${stamp}_${cameraId}_$i.jpg';
       await File(cropPath).writeAsBytes(Uint8List.fromList(img.encodeJpg(crop(r.frame, b), quality: 90)));
       added.add(AiEvent(

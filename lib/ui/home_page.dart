@@ -5,6 +5,9 @@ import '../services/app_state.dart';
 import 'camera_view_page.dart';
 import 'edit_camera_page.dart';
 import 'events_page.dart';
+import 'alarms_page.dart';
+import 'recordings_page.dart';
+import '../alarm/alarm.dart';
 import 'live_view.dart';
 import 'settings_page.dart';
 import 'snapshots_page.dart';
@@ -27,6 +30,30 @@ class HomePage extends StatelessWidget {
           appBar: AppBar(
             title: const Text('HomeGuard'),
             actions: [
+              ListenableBuilder(
+                listenable: AlarmCenter.instance,
+                builder: (context, _) {
+                  final a = AlarmCenter.instance;
+                  final mode = a.settings.mode;
+                  return IconButton(
+                    tooltip: 'Alarm: ${mode.label}',
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AlarmsPage(state: state))),
+                    icon: Badge(
+                      isLabelVisible: a.unacknowledged > 0,
+                      label: Text('${a.unacknowledged}'),
+                      child: Icon(
+                        switch (mode) { ArmMode.disarmed => Icons.shield_outlined, ArmMode.home => Icons.home_outlined, ArmMode.away => Icons.shield },
+                        color: mode == ArmMode.disarmed ? null : Colors.redAccent,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                tooltip: 'Recordings',
+                icon: const Icon(Icons.video_library_outlined),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => RecordingsPage(state: state))),
+              ),
               PopupMenuButton<int>(
                 tooltip: 'Grid size',
                 icon: const Icon(Icons.grid_view),
@@ -110,6 +137,8 @@ class _Tile extends StatelessWidget {
                   Icon(camera.useTls ? Icons.lock : Icons.lock_open, size: 14, color: camera.useTls ? Colors.greenAccent : Colors.orangeAccent),
                   const SizedBox(width: 6),
                   Expanded(child: Text(camera.name, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white))),
+                  if (camera.canRecord && camera.recording != RecordingMode.off)
+                    const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.fiber_manual_record, size: 12, color: Colors.redAccent)),
                 ]),
               ),
             ),

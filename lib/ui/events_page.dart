@@ -74,6 +74,7 @@ class _EventsPageState extends State<EventsPage> {
                 ChoiceChip(label: const Text('All'), selected: _kind == null, onSelected: (_) => setState(() => _kind = null)),
                 ChoiceChip(label: const Text('Faces'), selected: _kind == DetectionKind.face, onSelected: (_) => setState(() => _kind = DetectionKind.face)),
                 ChoiceChip(label: const Text('Plates'), selected: _kind == DetectionKind.plate, onSelected: (_) => setState(() => _kind = DetectionKind.plate)),
+                ChoiceChip(label: const Text('Motion'), selected: _kind == DetectionKind.motion, onSelected: (_) => setState(() => _kind = DetectionKind.motion)),
               ]),
             ),
             Expanded(
@@ -93,7 +94,11 @@ class _EventsPageState extends State<EventsPage> {
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, i) {
                         final e = list[i];
-                        final title = e.kind == DetectionKind.plate ? (e.text ?? 'Plate (unreadable)') : 'Face';
+                        final title = switch (e.kind) {
+                          DetectionKind.plate => e.text ?? 'Plate (unreadable)',
+                          DetectionKind.face => 'Face',
+                          DetectionKind.motion => 'Motion',
+                        };
                         return ListTile(
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(6),
@@ -124,7 +129,7 @@ class _EventDetail extends StatelessWidget {
     final e = event;
     return Scaffold(
       appBar: AppBar(
-        title: Text(e.kind == DetectionKind.plate ? (e.text ?? 'Plate') : 'Face'),
+        title: Text(switch (e.kind) { DetectionKind.plate => e.text ?? 'Plate', DetectionKind.face => 'Face', DetectionKind.motion => 'Motion' }),
         actions: [
           IconButton(
             tooltip: 'Enhance',

@@ -10,6 +10,7 @@ import '../ai/ai_engine.dart';
 import '../ai/detection.dart';
 import '../ai/event_store.dart';
 import '../models/camera.dart';
+import '../recording/recording_service.dart';
 import '../services/camera_repository.dart';
 import '../services/secure_http.dart';
 import '../services/stream_url.dart';
@@ -74,6 +75,13 @@ class _LiveViewState extends State<LiveView> implements LiveViewHandle {
   Future<void> _analyzeOnce() async {
     if (_disposed || _status != null) return;
     final c = widget.camera;
+    // A background worker already analyses this camera: show its results.
+    final w = RecordingService.instance.workerFor(c.id);
+    if (w != null) {
+      final a = w.analysis.value;
+      if (a != null && mounted) setState(() => _analysis = a);
+      return;
+    }
     try {
       final frame = await snapshot();
       if (frame == null || _disposed) return;
@@ -125,7 +133,6 @@ class _LiveViewState extends State<LiveView> implements LiveViewHandle {
       await native.setProperty('rtsp-transport', 'tcp');
       await native.setProperty('network-timeout', '10');
       await native.setProperty('cache', 'no');
-      await native.setProperty('demuxer-lavf-o', 'fflags=+nobuffer');
     }
     _player = player;
     _video = VideoController(player);
